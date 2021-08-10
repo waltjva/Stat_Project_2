@@ -1,0 +1,159 @@
+---
+title: "project2_eda"
+author: "Emily Cathey"
+date: "8/10/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Questions 
+
+Are there predictors that affect the quality of white wine more than red wine?
+
+For the combined model, how does the white/red distinction affect wine quality?
+
+Does a model for just red or just white predict wine quality better than a combined model?
+
+```{r}
+library(tidyverse)
+library(leaps)
+library(MASS)
+library(faraway)
+library(ROCR)
+```
+
+```{r}
+white <- read.csv("wineQualityWhites.csv")
+red <- read.csv("wineQualityReds.csv")
+
+class(white$quality)
+white$quality<-factor(white$quality)
+class(white$quality)
+
+```
+
+## EDA
+
+```{r}
+white %>%
+  ggplot(aes(y = fixed.acidity, x = quality)) + geom_boxplot()
+
+white %>%
+  ggplot(aes(y = volatile.acidity, x = quality)) + geom_boxplot()
+
+white %>%
+  ggplot(aes(y = citric.acid, x = quality)) + geom_boxplot()
+
+white %>%
+  ggplot(aes(y = residual.sugar, x = quality)) + geom_boxplot()
+
+white %>%
+  ggplot(aes(y = chlorides, x = quality)) + geom_boxplot()
+
+white %>%
+  ggplot(aes(y = free.sulfur.dioxide, x = quality)) + geom_boxplot()
+
+white %>%
+  ggplot(aes(y = density, x = quality)) + geom_boxplot()
+
+white %>%
+  ggplot(aes(y = pH, x = quality)) + geom_boxplot()
+
+white %>%
+  ggplot(aes(y = sulphates, x = quality)) + geom_boxplot()
+
+white %>%
+  ggplot(aes(y = alcohol, x = quality)) + geom_boxplot()
+```
+
+```{r}
+white <- white[,-1]
+red <- red[,-1]
+
+white <- white %>%
+  mutate("Kind" = "white")
+
+red <- red %>%
+  mutate("Kind" = "red")
+
+together <- rbind(white, red)
+```
+
+In order to build a MLR model that will predict wine quality for both red and white wine we first must combine the data from each of the wine datasets. Before combining the data we added a column that specified whether the wine was red or white so that wine type could be used in the model.
+
+First, we split the data into training and testing sets so we could evaluate the predictive ability of our MLR model with our data. To make sure that we were comparing each model with the same data we used set.seed() of 1 and we split each of the two datasets using an 80-20 split. Then we combined the testing for the red and white and the training for the red and white.  
+
+```{r}
+##set the random number generator so same results can ##be reproduced
+set.seed(1)
+##choose the observations to be in the training set.
+##I am splitting the data set into halves 
+samplered<-sample.int(nrow(red), floor(.80*nrow(red)), replace = F) 
+trainred<-red[samplered, ] ##training data
+testred<-red[-samplered, ] ##test data
+
+samplewhite<-sample.int(nrow(white), floor(.80*nrow(white)), replace = F) 
+trainwhite<-white[samplewhite, ] ##training data
+testwhite<-white[-samplewhite, ] ##test data
+
+train <- rbind(trainred, trainwhite)
+test <- rbind(testred, testred)
+```
+
+```{r}
+allreg <- regsubsets(quality ~., data=train, nbest=1)
+summary(allreg)
+
+which.max(summary(allreg)$adjr2)
+coef(allreg, which.max(summary(allreg)$adjr2))
+
+```
+
+
+## Forward Selection
+
+```{r}
+##intercept only model
+regnull <- lm(quality~1, data=train) 
+##model with all predictors 
+regfull <- lm(quality~., data=train)
+```
+
+```{r}
+step(regnull, scope=list(lower=regnull, upper=regfull), direction="forward")
+```
+
+In order to find the best model for predicting wine quality using data from red and white wine we used forward selection. At the beginning of the algorithm the AIC for the intercept only model was -1389.4. The algorithm then considered adding each predictor to the intercept only model and calculated the new AIC. Alcohol was added to the model because it resulted in the model with the lowest AIC. The same process was repeated until adding another predictor did not result in a lower AIC. The final model produced by forward elimination includes alcohol, volatile.acidity, sulphates, residual.sugar, Kind, free.sulfur.dioxide, density, total.sulfur.dioxide, chlorides, fixed.acidity, and pH. The model resulted in an AIC of -3226.32. 
+
+
+```{r}
+
+result<-lm(quality~., data=train)
+#summary(result)
+
+train$Kind<-factor(train$Kind)
+
+contrasts(train$Kind)
+
+reduced<-lm(quality~fixed.acidity+volatile.acidity+residual.sugar+chlorides+free.sulfur.dioxide+total.sulfur.dioxide+density+pH+sulphates+alcohol+Kind, data=train)
+#summary(reduced)
+
+anova(reduced, result)
+```
+
+Next we ran a partial F test to compare the reduced model selected by the forward selection and the full model. The null hypothesis is that the additional coefficients are 0 and the alternative is that at least one of the coefficients is not zero. The F statistic is 1.2928 and the p value was 0.2556. We fail to reject the null hypothesis, so there is little evidence of supporting the full model. We go with the reduced model over the full model.
+
+```{r}
+##predicted quality of test data based on training data
+preds<-predict(reduced,newdata=test)
+
+squared <- (test$quality-preds)**2
+MSE_togtther <- (sum(squared))/nrow(test)
+MSE_togtther
+
+```
+
+To test how well the model predicts the quality of wine we used the predict function with the model selected from forward selection and the test data. We then calculated the mean squared error and found that 46% of the variation in quality for the 'together' model can be explained by our predictors.
