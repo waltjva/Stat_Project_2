@@ -11,12 +11,6 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Questions 
 
-Are there predictors that affect the quality of white wine more than red wine?
-
-For the combined model, how does the white/red distinction affect wine quality?
-
-Does a model for just red or just white predict wine quality better than a combined model?
-
 ```{r}
 library(tidyverse)
 library(leaps)
@@ -231,46 +225,29 @@ cor(train[,c(1,2,4,6,7,8,9,10,11,12)])
 ```
 
 ```{r}
-# Partial F test for removing density
+# Partial F test for removing alcohol
 
 morereduced<-lm(quality ~ alcohol + volatile.acidity + sulphates + 
     residual.sugar + Kind + free.sulfur.dioxide + density + total.sulfur.dioxide + fixed.acidity + pH, data = train)
 
-morereduced2<-lm(quality ~ alcohol + volatile.acidity + sulphates + 
-    residual.sugar + Kind + free.sulfur.dioxide + total.sulfur.dioxide + fixed.acidity + pH, data = train)
-
+morereduced2<-lm(quality ~ volatile.acidity + sulphates + 
+    residual.sugar + Kind + free.sulfur.dioxide + density + total.sulfur.dioxide + fixed.acidity + pH, data = train)
 
 summary(morereduced2)
+
+anova(morereduced2, morereduced)
 ```
 
 ```{r}
 vif(morereduced2)
 ```
 
-```{r}
-# Partial F test for removing fixed acidity and pH
-
-morereduced2<-lm(quality ~ alcohol + volatile.acidity + sulphates + 
-    residual.sugar + Kind + free.sulfur.dioxide + total.sulfur.dioxide + fixed.acidity + pH, data = train)
-
-morereduced3<-lm(quality ~ alcohol + volatile.acidity + sulphates + 
-    residual.sugar + Kind + free.sulfur.dioxide + total.sulfur.dioxide, data = train)
-
-summary(morereduced3)
-
-anova(morereduced3, morereduced2)
-
-```
-
-```{r}
-vif(morereduced3)
-```
 
 ### MSE 
 
 ```{r}
 ##predicted quality of test data based on training data
-predsred<-predict(morereduced3,newdata=testred)
+predsred<-predict(morereduced2,newdata=testred)
 
 # MSE for red wine
 squared <- (testred$quality-predsred)**2
@@ -278,7 +255,7 @@ MSE_together_red <- (sum(squared))/nrow(testred)
 MSE_together_red
 
 
-predswhite<-predict(morereduced3,newdata=testwhite)
+predswhite<-predict(morereduced2,newdata=testwhite)
 
 # MSE for white wine
 squared <- (testwhite$quality-predswhite)**2
@@ -286,7 +263,7 @@ MSE_together_white <- (sum(squared))/nrow(testwhite)
 MSE_together_white
 
 
-preds<-predict(morereduced3,newdata=test)
+preds<-predict(morereduced2,newdata=test)
 
 # MSE for all
 squared <- (test$quality-preds)**2
