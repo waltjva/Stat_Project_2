@@ -1,0 +1,194 @@
+---
+title: "White Wine Model"
+author: "Stephen Whetzel"
+date: "8/10/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+
+library(tidyverse)
+library(leaps)
+library(caret)
+library(car)
+# library(faraway)
+
+
+Data = read.csv('wineQualityWhites.csv')
+Data$X <- NULL
+head(Data,10)
+
+##set the random number generator so same results can ##be reproduced
+set.seed(1)
+##choose the observations to be in the training set.
+##I am splitting the data set into halves 
+samplewhite<-sample.int(nrow(Data), floor(.80*nrow(Data)), replace = F) 
+train<-Data[samplewhite, ] ##training data
+test<-Data[-samplewhite, ] ##test data
+
+```
+
+Using a forward step-wise function to choose a model. 
+
+```{r}
+
+regnull <- lm(quality~1, data=test)
+regfull <- lm(quality~., data=test)
+
+step(regnull, scope=list(lower=regnull, upper=regfull), direction="forward")
+
+```
+
+
+```{r}
+
+result_forw <- lm(formula = quality ~ alcohol + volatile.acidity + residual.sugar + 
+    pH + free.sulfur.dioxide + density + sulphates, data = test)
+
+summary(result_forw)
+
+```
+
+.3228 adjusted R^2 isn't a great fit...
+
+Trying a backwards step function next. 
+
+```{r}
+
+step(regfull, scope=list(lower=regnull, upper=regfull), direction="backward")
+
+
+```
+The backwards and forwards methods produce the same exact model. Next we'll try a stepwise function.
+
+```{r}
+
+step(regnull, scope=list(lower=regnull, upper=regfull), direction="both")
+
+
+```
+All three methods agree that the best model takes in all predictors except for citric acid, chlorides and total sulfur dioxide when determining white wine quality. 
+
+Taking out chlorides and total sulfur dioxide makes sense given the lack of linearity within the EDA boxplot, but citric acid doesn't make as much sense to take out. I'm going to try a stepwise function that starts with a model with just citric acid and see if it ends up taking it out and then compare the adjusted r squared values. 
+
+```{r}
+
+regcitric <- lm(quality~citric.acid, data=test)
+step(regcitric, scope=list(lower=regnull, upper=regfull), direction="both")
+
+
+```
+
+Ended up taking out citric acid anyway. I'm going to look at a summary of the model but adding in citric acid and compare the adjusted r squared values. 
+
+```{r}
+
+result_citric <- lm(formula = quality ~ alcohol + volatile.acidity + residual.sugar + 
+    pH + free.sulfur.dioxide + density + sulphates + citric.acid, data = test)
+
+summary(result_citric)
+summary(result_forw)
+
+```
+
+The model without citric acid does just slightly better than the original model. Good evidence for leaving that predictor out of the model. It doesn't significantly affect the adj r squared and we can make a marginally simpler model. 
+
+
+going to examine residual plot next
+
+```{r}
+
+df <- data.frame(result_forw$residuals, result_forw$fitted.values)
+df
+ggplot(df, aes(x=result_forw.fitted.values,y=result_forw.residuals))+
+  geom_point()+
+  geom_hline(yintercept=0, color="red")
+
+```
+
+let's run a Partial F test to make sure that it is okay to drop the four predictors dropped in the above model, chlorides, fixed acidity, total sulfur dioxide, and citric acid
+
+```{r}
+
+anova(result_forw, regfull)
+
+
+```
+
+The result of the test is a F statistic of 0.3973 and a p value of 0.8107. Our null hypothesis is that the coefficients for chlorides and citric acid are both equal to zero. We don't have nearly enough evidence to reject this hypothesis and so we drop the four predictors and opt for the simpler model. 
+
+Next we'll turn to diagnosing multi-collinearity in the data by calculating the VIF for each predictor still in the model. 
+```{r}
+
+cor(Data[, c(11,2,4,9,6,8,10)])
+vif(result_forw)
+
+```
+
+Density has a very high VIF of 15.904, much higher than the normal threshold of 10. As such we want to consider getting rid of this predictor. We'll run another partial f test to see if it would be appropriate to drop this predictor. 
+
+```{r}
+
+reduced_forw2 <- lm(formula = quality ~ alcohol + volatile.acidity + residual.sugar + free.sulfur.dioxide + pH + sulphates, data = test)
+
+summary(reduced_forw2)
+
+anova(reduced_forw2, result_forw) 
+vif(reduced_forw2)
+
+```
+With a p value of 0.05594 we are just above the threshold for significance at the 95% level when evaluating whether the density variable has a coefficient of zero. With such a small p value, it's a bit of a gray area as to whether we should drop it or not. Since this predictor shows a high degree of multi-collinearity we chose to drop the variable. Running a vif analysis on the further reduced model shows that removing this variable takes a good deal of multicollinearity out of the model and should improve accuracy. 
+
+```{r}
+
+summary(result_forw2)
+
+```
+
+```{r}
+summary(reduced_forw)
+
+```
+
+
+```{r}
+
+summary(reduced_forw2)
+
+```
+
+We're now seeing quite high p values for pH, sulphates, and fixed acidity. These may not actually be necessary for our final model. Taking them out yields an adjusted r squared value of 0.2707 which is only 0.5% less than the adjusted r^2 value for the last model. Running a partial f test without these predictors also yields a p value of 0.1627, so it is reasonable that we can drop these predictors from the model. 
+
+```{r}
+
+reduced_forw3 <- lm(formula = quality ~ alcohol + volatile.acidity + free.sulfur.dioxide + 
+    residual.sugar, data = test)
+
+summary(reduced_forw3)
+
+anova(reduced_forw3, reduced_forw2)
+
+vif(reduced_forw3)
+
+```
+```{r}
+
+df <- data.frame(reduced_forw3$residuals, reduced_forw3$fitted.values)
+
+ggplot(df, aes(x=reduced_forw3.fitted.values, y=reduced_forw3.residuals))+
+  geom_point()
+
+
+```
+
+
+
+
+
+This final model has the formula:
+$$ \hat{y} = 2.204 + 0.383x_{alcohol} - 2.099x_{volatile\ acidity} + 0.003x_{free\ sulfur\ dioxide} + 0.024x_{residual\ sugar}$$
+
+The final model has a adjusted r squared of 0.2723, which isn't very strong. However the strength of this model is in it's simplicity and it's lack of multi-collinearity and is the best that we can do given the data. According to this model the most important factors when predicting a wine's quality are it's alcohol content, it's volatile acidity, it's free sulfur dioxide, and it's residual sugar. Alcohol, free sulfur dioxide, and residual sugar are all directly related to quality and will increase the prediction of quality when increased. Volatile acidity on the other hand is indirectly related to quality and an increase in this metric will bring down the quality prediction. 
+
+
+
