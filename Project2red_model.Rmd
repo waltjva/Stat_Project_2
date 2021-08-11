@@ -1,0 +1,161 @@
+---
+title: "Proj2red"
+author: "Walter Coleman"
+date: "8/10/2021"
+output: pdf_document
+---
+```{r}
+setwd('/Users/colemanwalterj/Documents/OneDrive/UVA MS Data Science/Linear Models for DS')
+library(tidyverse)
+library(ggplot2)
+library(leaps)
+red<-read.csv('wineQualityReds.csv',header=TRUE)
+red<-select(red, -(X))
+
+##set the random number generator so same results can ##be reproduced
+set.seed(1)
+##choose the observations to be in the training set.
+##I am splitting the data set into halves 
+samplered<-sample.int(nrow(red), floor(.80*nrow(red)), replace = F) 
+trainred<-red[samplered, ] ##training data
+testred<-red[-samplered, ] ##test data
+
+head(trainred)
+```
+```{r}
+ggplot(trainred, aes(x=residual.sugar, y=alcohol,color=quality))+
+  geom_point()+
+  labs(x="Residual Sugar", y="Alcohol", title="Alcohol against Residual Sugar with Quality")
+```
+```{r}
+ggplot(trainred, aes(x=citric.acid, y=pH,color=alcohol))+
+  geom_point()+
+  labs(x="Citric Acid", y="pH", title="pH against Citric Acid with Quality")
+```
+
+```{r}
+library(gridExtra)
+bp1<-ggplot(trainred, aes(x=fixed.acidity, y=quality))+
+  geom_point()+
+  geom_smooth(method = "lm", se=FALSE)+
+  labs(x="fixed.acidity", y="quality",title="quality against fixed.acidity")
+bp2<-ggplot(trainred, aes(x=volatile.acidity, y=quality))+
+  geom_point()+
+  geom_smooth(method = "lm", se=FALSE)+
+  labs(x="volatile.acidity", y="quality",title="quality against volatile.acidity")
+bp3<-ggplot(trainred, aes(x=citric.acid, y=quality))+
+  geom_point()+
+  geom_smooth(method = "lm", se=FALSE)+
+  labs(x="citric.acid", y="quality",title="quality against citric.acid")
+bp4<-ggplot(trainred, aes(x=residual.sugar, y=quality))+
+  geom_point()+
+  geom_smooth(method = "lm", se=FALSE)+
+  labs(x="residual.sugar", y="quality",title="quality against residual.sugar")
+bp5<-ggplot(trainred, aes(x=chlorides, y=quality))+
+  geom_point()+
+  geom_smooth(method = "lm", se=FALSE)+
+  labs(x="chlorides", y="quality",title="quality against chlorides")
+bp6<-ggplot(trainred, aes(x=free.sulfur.dioxide, y=quality))+
+  geom_point()+
+  geom_smooth(method = "lm", se=FALSE)+
+  labs(x="free.sulfur.dioxide", y="quality",title="quality against free.sulfur.dioxide")
+bp7<-ggplot(trainred, aes(x=total.sulfur.dioxide, y=quality))+
+  geom_point()+
+  geom_smooth(method = "lm", se=FALSE)+
+  labs(x="total.sulfur.dioxide", y="quality",title="quality against total.sulfur.dioxide")
+bp8<-ggplot(trainred, aes(x=density, y=quality))+
+  geom_point()+
+  geom_smooth(method = "lm", se=FALSE)+
+  labs(x="density", y="quality",title="quality against density")
+bp9<-ggplot(trainred, aes(x=pH, y=quality))+
+  geom_point()+
+  geom_smooth(method = "lm", se=FALSE)+
+  labs(x="pH", y="quality",title="quality against pH")
+bp10<-ggplot(trainred, aes(x=sulphates, y=quality))+
+  geom_point()+
+  geom_smooth(method = "lm", se=FALSE)+
+  labs(x="sulphates", y="quality",title="quality against sulphates")
+bp11<-ggplot(trainred, aes(x=alcohol, y=quality))+
+  geom_point()+
+  geom_smooth(method = "lm", se=FALSE)+
+  labs(x="alcohol", y="quality",title="quality against alcohol")
+##produce the 4 boxplots in a 2 by 2 matrix
+grid.arrange(bp1, bp2, bp3, bp4, bp5, bp6, bp7, bp8, bp9, bp10, bp11, ncol = 2, nrow = 12)
+```
+
+```{r}
+pairs(trainred, lower.panel = NULL)
+```
+```{r}
+result<-lm(quality ~ ., data = trainred)
+summary(result)
+```
+
+We test now if at least one of the coefficients is not zero:
+
+H_0: beta1=beta2=...beta11=0
+H_a: at least one betaj is not zero for j in 1,...,11
+
+With F-statistic 81.35 and a low p-value, we reject the null hypothesis and conclude that at least one coefficient is not zero.
+
+We believe that given the insignificant results of fixed.acidity, citric.acid, residual.sugar, density, pH we may be better off dropping them from our model. Thus, we compare with a reduced linear regression model and run ANOVA to test if we can drop.
+```{r}
+reduced<-lm(quality ~ volatile.acidity+chlorides+free.sulfur.dioxide+total.sulfur.dioxide+sulphates+alcohol, data=trainred)
+
+anova(reduced, result)
+```
+
+H_0: beta1 = beta4 = beta5 = beta9 = beta10 = 0
+H_a: at least one betaj is not zero for j in 1,4,5,9,10
+
+With F statistic 2.74 and a low p-value, we reject the null hypothesis and do not drop the predictors neglected in our reduced model.
+
+Adjusted R-squared:
+```{r}
+allreg <- regsubsets(quality ~., data=trainred, nbest=1)
+summary(allreg)
+```
+```{r}
+which.max(summary(allreg)$adjr2)
+```
+```{r}
+coef(allreg, which.max(summary(allreg)$adjr2))
+```
+
+
+We will also run a forward selection to see the best model based on AIC:
+```{r}
+##intercept only model
+regnull <- lm(quality~1, data=trainred) 
+##model with all predictors 
+regfull <- lm(quality~., data=trainred)
+
+step(regnull, scope=list(lower=regnull, upper=regfull), direction="forward")
+```
+
+Forward selection model based on AIC (also the model with the best adjusted R^2):
+
+quality = 4.089579 + 0.299231*alcohol - 0.962398*volatile.acidity + 0.881832*sulphates - 0.003293*total.sulfur.dioxide - 
+          1.585888*chlorides - 0.436359*pH + 0.005371*free.sulfur.dioxide
+    
+    
+Attempting partial F test again after forward selection AIC-based recommendation, 
+```{r}
+reduced2 <- lm(quality ~ alcohol + volatile.acidity + sulphates + 
+    total.sulfur.dioxide + chlorides + pH + free.sulfur.dioxide, 
+    data = trainred)
+
+anova(reduced2, result)
+```
+
+With F-statistic 0.7663 and a high p-value, we fail to reject the null hypothesis and drop the neglected predictors in our second reduced model.
+
+```{r}
+preds<-predict(reduced2,newdata=testred)
+
+## Mean squared error
+sum((testred$quality-preds)^2)/nrow(testred)
+```
+```{r}
+summary(reduced2)
+```
