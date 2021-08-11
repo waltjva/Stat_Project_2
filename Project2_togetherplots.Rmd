@@ -1,0 +1,122 @@
+---
+title: "wineProject"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+setwd("/Users/maddiehennessy/Desktop/MSDS/Summer")
+red <- read.csv("winequality-red.csv", sep=";")
+white <- read.csv("winequality-white.csv", sep = ";")
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r}
+set.seed(1) ##for reproducibility to get the same split
+sample<-sample.int(nrow(white), floor(.80*nrow(white)), replace = F)
+trainwhite<-white[sample, ] ##training data frame
+testwhite<-white[-sample, ] ##test data frame
+
+set.seed(1) ##for reproducibility to get the same split
+sample2<-sample.int(nrow(red), floor(.80*nrow(red)), replace = F)
+trainred<-red[sample, ] ##training data frame
+testred<-red[-sample, ] ##test data frame
+
+trainwhite <- trainwhite%>%
+  mutate("Kind" = "white")
+trainred <- trainred%>%
+  mutate("Kind" = "red")
+train_together <- rbind(trainwhite, trainred)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r}
+regnull <- lm(~1, data=train_together) ##model with all predictors 
+regfull <- lm(mpg~., data=train_together)
+step(regnull, scope=list(lower=regnull, upper=regfull), direction="forward")
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+
+```{r}
+result <- lm(quality~., data=train_together)
+summary(result)
+```
+
+```{r}
+train_together$quality<-factor(train_together$quality) 
+
+
+ggplot(train_together,aes(x=fixed.acidity, color=quality))+
+  geom_density()+
+  labs(title="Density Plot of fixed.acidity by quality")
+
+ggplot(train_together,aes(x=volatile.acidity, color=quality))+
+  geom_density()+
+  labs(title="Density Plot of volatile.acidity by quality")
+
+ggplot(train_together,aes(x=citric.acid, color=quality))+
+  geom_density()+
+  labs(title="Density Plot of citric.acid by quality")
+
+ggplot(train_together,aes(x=residual.sugar, color=quality))+
+  geom_density()+
+  labs(title="Density Plot of residual.sugar by quality")
+
+ggplot(train_together,aes(x=chlorides, color=quality))+
+  geom_density()+
+  labs(title="Density Plot of chlorides by quality")
+
+ggplot(train_together,aes(x=free.sulfur.dioxide, color=quality))+
+  geom_density()+
+  labs(title="Density Plot of free.sulfur.dioxide by quality")
+
+ggplot(train_together,aes(x=total.sulfur.dioxide, color=quality))+
+  geom_density()+
+  labs(title="Density Plot of total.sulfur.dioxide by quality")
+
+ggplot(train_together,aes(x=density, color=quality))+
+  geom_density()+
+  labs(title="Density Plot of desnity by quality")
+
+ggplot(train_together,aes(x=pH, color=quality))+
+  geom_density()+
+  labs(title="Density Plot of pH by quality")
+
+ggplot(train_together,aes(x=sulphates, color=quality))+
+  geom_density()+
+  labs(title="Density Plot of sulfates by quality")
+
+ggplot(train_together,aes(x=alcohol, color=quality))+
+  geom_density()+
+  labs(title="Density Plot of alcohol by quality")
+
+##produce the 4 density plots in a 2 by 2 matrix
+#grid.arrange(dp1, dp2, dp3, dp4, dp5, dp6, ncol = 2, nrow = 3)
+
+
+```
+```{r}
+ggplot(train_together, aes(x=quality, fill=Kind))+
+  geom_bar(position = "fill")+
+  labs(x="quality", y="Proportion",
+       title="Proportion of Kind by quality")
+```
+
+
+
+
+
+
+
+
+
