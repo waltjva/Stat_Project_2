@@ -32,8 +32,8 @@ Using a forward step-wise function to choose a model.
 
 ```{r}
 
-regnull <- lm(quality~1, data=test)
-regfull <- lm(quality~., data=test)
+regnull <- lm(quality~1, data=train)
+regfull <- lm(quality~., data=train)
 
 step(regnull, scope=list(lower=regnull, upper=regfull), direction="forward")
 
@@ -43,7 +43,8 @@ step(regnull, scope=list(lower=regnull, upper=regfull), direction="forward")
 ```{r}
 
 result_forw <- lm(formula = quality ~ alcohol + volatile.acidity + residual.sugar + 
-    pH + free.sulfur.dioxide + density + sulphates, data = test)
+    density + sulphates + pH + free.sulfur.dioxide + fixed.acidity, 
+    data = train)
 
 summary(result_forw)
 
@@ -73,7 +74,7 @@ Taking out chlorides and total sulfur dioxide makes sense given the lack of line
 
 ```{r}
 
-regcitric <- lm(quality~citric.acid, data=test)
+regcitric <- lm(quality~citric.acid, data=train)
 step(regcitric, scope=list(lower=regnull, upper=regfull), direction="both")
 
 
@@ -84,7 +85,8 @@ Ended up taking out citric acid anyway. I'm going to look at a summary of the mo
 ```{r}
 
 result_citric <- lm(formula = quality ~ alcohol + volatile.acidity + residual.sugar + 
-    pH + free.sulfur.dioxide + density + sulphates + citric.acid, data = test)
+    density + sulphates + pH + free.sulfur.dioxide + fixed.acidity + citric.acid, 
+    data = train)
 
 summary(result_citric)
 summary(result_forw)
@@ -92,19 +94,6 @@ summary(result_forw)
 ```
 
 The model without citric acid does just slightly better than the original model. Good evidence for leaving that predictor out of the model. It doesn't significantly affect the adj r squared and we can make a marginally simpler model. 
-
-
-going to examine residual plot next
-
-```{r}
-
-df <- data.frame(result_forw$residuals, result_forw$fitted.values)
-df
-ggplot(df, aes(x=result_forw.fitted.values,y=result_forw.residuals))+
-  geom_point()+
-  geom_hline(yintercept=0, color="red")
-
-```
 
 let's run a Partial F test to make sure that it is okay to drop the four predictors dropped in the above model, chlorides, fixed acidity, total sulfur dioxide, and citric acid
 
@@ -115,7 +104,7 @@ anova(result_forw, regfull)
 
 ```
 
-The result of the test is a F statistic of 0.3973 and a p value of 0.8107. Our null hypothesis is that the coefficients for chlorides and citric acid are both equal to zero. We don't have nearly enough evidence to reject this hypothesis and so we drop the four predictors and opt for the simpler model. 
+The result of the test is a F statistic of 0.68491 and a p value of 0.7526. Our null hypothesis is that the coefficients for chlorides and citric acid are both equal to zero. We don't have nearly enough evidence to reject this hypothesis and so we drop the four predictors and opt for the simpler model. 
 
 Next we'll turn to diagnosing multi-collinearity in the data by calculating the VIF for each predictor still in the model. 
 ```{r}
@@ -125,23 +114,24 @@ vif(result_forw)
 
 ```
 
-Density has a very high VIF of 15.904, much higher than the normal threshold of 10. As such we want to consider getting rid of this predictor. We'll run another partial f test to see if it would be appropriate to drop this predictor. 
+Density has a very high VIF of 24.322503, much higher than the normal threshold of 10. As such we want to consider getting rid of this predictor. We'll run another partial f test to see if it would be appropriate to drop this predictor. 
 
 ```{r}
 
-reduced_forw2 <- lm(formula = quality ~ alcohol + volatile.acidity + residual.sugar + free.sulfur.dioxide + pH + sulphates, data = test)
+reduced_forw2 <- lm(formula = quality ~ alcohol + volatile.acidity + residual.sugar + sulphates + pH + free.sulfur.dioxide + fixed.acidity, data = train)
 
+summary(result_forw)
 summary(reduced_forw2)
 
 anova(reduced_forw2, result_forw) 
 vif(reduced_forw2)
 
 ```
-With a p value of 0.05594 we are just above the threshold for significance at the 95% level when evaluating whether the density variable has a coefficient of zero. With such a small p value, it's a bit of a gray area as to whether we should drop it or not. Since this predictor shows a high degree of multi-collinearity we chose to drop the variable. Running a vif analysis on the further reduced model shows that removing this variable takes a good deal of multicollinearity out of the model and should improve accuracy. 
+Our p-value here doesn't support getting rid of this variable, but since this predictor shows a high degree of multi-collinearity we chose to drop the variable so that our model would be consistent with the assumptions of multiple linear regression. Running a vif analysis on the further reduced model shows that removing this variable takes a good deal of multicollinearity out of the model and should improve accuracy. 
 
 ```{r}
 
-summary(result_forw2)
+summary(reduced_forw2)
 
 ```
 
@@ -157,12 +147,12 @@ summary(reduced_forw2)
 
 ```
 
-We're now seeing quite high p values for pH, sulphates, and fixed acidity. These may not actually be necessary for our final model. Taking them out yields an adjusted r squared value of 0.2707 which is only 0.5% less than the adjusted r^2 value for the last model. Running a partial f test without these predictors also yields a p value of 0.1627, so it is reasonable that we can drop these predictors from the model. 
+We're now seeing a high p-values for pH. This predictor may not actually be necessary for our final model. Taking it out yields an adjusted r squared value of 0.2688 which is only 0.5% less than the adjusted r^2 value for the last model. Running a partial f test without these predictors also yields a p value of 0.138, so it is reasonable that we can drop this predictor from the model. 
 
 ```{r}
 
-reduced_forw3 <- lm(formula = quality ~ alcohol + volatile.acidity + free.sulfur.dioxide + 
-    residual.sugar, data = test)
+reduced_forw3 <- lm(quality ~ alcohol + volatile.acidity + 
+                      free.sulfur.dioxide + residual.sugar + sulphates + fixed.acidity, data = train)
 
 summary(reduced_forw3)
 
@@ -173,7 +163,7 @@ vif(reduced_forw3)
 ```
 ```{r}
 
-df <- data.frame(reduced_forw3$residuals, reduced_forw3$fitted.values)
+df <- data.frame(reduced_forw3$residuals, reduced_forw3$fitted.values, train$quality)
 
 ggplot(df, aes(x=reduced_forw3.fitted.values, y=reduced_forw3.residuals))+
   geom_point()
@@ -186,9 +176,18 @@ ggplot(df, aes(x=reduced_forw3.fitted.values, y=reduced_forw3.residuals))+
 
 
 This final model has the formula:
-$$ \hat{y} = 2.204 + 0.383x_{alcohol} - 2.099x_{volatile\ acidity} + 0.003x_{free\ sulfur\ dioxide} + 0.024x_{residual\ sugar}$$
+$$ \hat{y} = 2.439 + 0.378x_{alcohol} - 2.017x_{volatile\ acidity} + 0.004x_{free\ sulfur\ dioxide} + 0.025x_{residual\ sugar + 0.456x_{sulphates} - 0.072x_{fixed\ acidity}}$$
 
-The final model has a adjusted r squared of 0.2723, which isn't very strong. However the strength of this model is in it's simplicity and it's lack of multi-collinearity and is the best that we can do given the data. According to this model the most important factors when predicting a wine's quality are it's alcohol content, it's volatile acidity, it's free sulfur dioxide, and it's residual sugar. Alcohol, free sulfur dioxide, and residual sugar are all directly related to quality and will increase the prediction of quality when increased. Volatile acidity on the other hand is indirectly related to quality and an increase in this metric will bring down the quality prediction. 
+The final model has a adjusted r squared of 0.2707, which isn't very strong. However the strength of this model is in it's simplicity and it's lack of multi-collinearity and is the best that we can do given the data. According to this model the most important factors when predicting a wine's quality are it's alcohol content, it's volatile acidity, it's free sulfur dioxide, and it's residual sugar. Alcohol, free sulfur dioxide, and residual sugar are all directly related to quality and will increase the prediction of quality when increased. Volatile acidity on the other hand is indirectly related to quality and an increase in this metric will bring down the quality prediction. 
+
+```{r}
+
+predswhite <- predict(reduced_forw3, newdata=test)
+squared <- (test$quality-predswhite)**2
+MSE_together_white <- (sum(squared))/nrow(test)
+MSE_together_white
+
+```
 
 
 
