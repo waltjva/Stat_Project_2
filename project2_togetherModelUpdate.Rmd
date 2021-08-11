@@ -1,0 +1,296 @@
+---
+title: "project2_eda"
+author: "Emily Cathey"
+date: "8/10/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Questions 
+
+Are there predictors that affect the quality of white wine more than red wine?
+
+For the combined model, how does the white/red distinction affect wine quality?
+
+Does a model for just red or just white predict wine quality better than a combined model?
+
+```{r}
+library(tidyverse)
+library(leaps)
+library(MASS)
+library(faraway)
+library(ROCR)
+library(gridExtra)
+
+```
+
+
+```{r}
+white <- read.csv("wineQualityWhites.csv")
+red <- read.csv("wineQualityReds.csv")
+
+# turn quality into a factor for EDA
+class(white$quality)
+white$quality<-factor(white$quality)
+class(white$quality)
+
+class(red$quality)
+red$quality<-factor(red$quality)
+class(red$quality)
+
+```
+
+## EDA
+
+```{r}
+
+# create boxplots for the white predictors
+
+plot1 <- white %>%
+  ggplot(aes(y = fixed.acidity, x = quality)) + geom_boxplot() + ylab("fixed acidity")
+
+plot2 <- white %>%
+  ggplot(aes(y = volatile.acidity, x = quality)) + geom_boxplot() + ylab("volatile acidity")
+
+plot3 <- white %>%
+  ggplot(aes(y = citric.acid, x = quality)) + geom_boxplot() + ylab("citric acid")
+
+plot4 <- white %>%
+  ggplot(aes(y = residual.sugar, x = quality)) + geom_boxplot() + ylab("residual sugar")
+
+plot5 <- white %>%
+  ggplot(aes(y = chlorides, x = quality)) + geom_boxplot()
+
+plot6 <- white %>%
+  ggplot(aes(y = free.sulfur.dioxide, x = quality)) + geom_boxplot() + ylab("free sulfur dioxide")
+
+plot7 <- white %>%
+  ggplot(aes(y = density, x = quality)) + geom_boxplot()
+
+plot8 <- white %>%
+  ggplot(aes(y = pH, x = quality)) + geom_boxplot()
+
+plot9 <- white %>%
+  ggplot(aes(y = sulphates, x = quality)) + geom_boxplot()
+
+plot10 <- white %>%
+  ggplot(aes(y = alcohol, x = quality)) + geom_boxplot()
+
+grid.arrange(plot1, plot2, plot3, plot4, plot5, plot6, plot7, plot8, plot9, plot10, ncol = 5, nrow = 2)
+```
+
+```{r}
+
+# create boxplots for the red predictors
+
+plot1 <- red %>%
+  ggplot(aes(y = fixed.acidity, x = quality)) + geom_boxplot() + ylab("fixed acidity")
+
+plot2 <- red %>%
+  ggplot(aes(y = volatile.acidity, x = quality)) + geom_boxplot() + ylab("volatile acidity")
+
+plot3 <- red %>%
+  ggplot(aes(y = citric.acid, x = quality)) + geom_boxplot() + ylab("citric acid")
+
+plot4 <- red %>%
+  ggplot(aes(y = residual.sugar, x = quality)) + geom_boxplot() + ylab("residual sugar")
+
+plot5 <- red %>%
+  ggplot(aes(y = chlorides, x = quality)) + geom_boxplot()
+
+plot6 <- red %>%
+  ggplot(aes(y = free.sulfur.dioxide, x = quality)) + geom_boxplot() + ylab("free sulfur dioxide")
+
+plot7 <- red %>%
+  ggplot(aes(y = density, x = quality)) + geom_boxplot()
+
+plot8 <- red %>%
+  ggplot(aes(y = pH, x = quality)) + geom_boxplot()
+
+plot9 <- red %>%
+  ggplot(aes(y = sulphates, x = quality)) + geom_boxplot()
+
+plot10 <- red %>%
+  ggplot(aes(y = alcohol, x = quality)) + geom_boxplot()
+
+grid.arrange(plot1, plot2, plot3, plot4, plot5, plot6, plot7, plot8, plot9, plot10, ncol = 5, nrow = 2)
+```
+
+```{r}
+
+# re read the data in so the quality variable is numeric again
+
+white <- read.csv("wineQualityWhites.csv")
+red <- read.csv("wineQualityReds.csv")
+
+white <- white[,-1]
+red <- red[,-1]
+
+# add a column with win type
+
+white <- white %>%
+  mutate("Kind" = "white")
+
+red <- red %>%
+  mutate("Kind" = "red")
+
+together <- rbind(white, red)
+```
+
+
+```{r}
+##set the random number generator so same results can ##be reproduced
+set.seed(1)
+##choose the observations to be in the training set.
+##I am splitting the data set into 80/20
+
+samplered<-sample.int(nrow(red), floor(.80*nrow(red)), replace = F) 
+trainred<-red[samplered, ] ##training data
+testred<-red[-samplered, ] ##test data
+
+samplewhite<-sample.int(nrow(white), floor(.80*nrow(white)), replace = F) 
+trainwhite<-white[samplewhite, ] ##training data
+testwhite<-white[-samplewhite, ] ##test data
+
+# combine red and white training and test
+
+train <- rbind(trainred, trainwhite)
+test <- rbind(testred, testwhite)
+```
+
+### Forward Selection
+
+```{r}
+##intercept only model
+regnull <- lm(quality~1, data=train) 
+##model with all predictors 
+regfull <- lm(quality~., data=train)
+```
+
+```{r}
+step(regnull, scope=list(lower=regnull, upper=regfull), direction="forward")
+```
+
+### Backwards Selection
+
+```{r}
+step(regfull, scope=list(lower=regnull, upper=regfull), direction="backward")
+
+```
+
+### Stepwise Selection
+
+```{r}
+step(regnull, scope=list(lower=regnull, upper=regfull), direction="both")
+```
+
+### Partial F tests
+
+```{r}
+
+# partial F test to check forward selection
+
+result<-lm(quality~., data=train)
+#summary(result)
+
+train$Kind<-factor(train$Kind)
+
+contrasts(train$Kind)
+
+reduced<-lm(quality ~ alcohol + volatile.acidity + sulphates + 
+    residual.sugar + Kind + free.sulfur.dioxide + density + total.sulfur.dioxide + 
+    chlorides + fixed.acidity + pH, data = train)
+summary(reduced)
+
+anova(reduced, result)
+```
+
+
+```{r}
+# Partial F test for chlorides
+
+reduced<-lm(quality ~ alcohol + volatile.acidity + sulphates + 
+    residual.sugar + Kind + free.sulfur.dioxide + density + total.sulfur.dioxide + 
+    chlorides + fixed.acidity + pH, data = train)
+
+morereduced<-lm(quality ~ alcohol + volatile.acidity + sulphates + 
+    residual.sugar + Kind + free.sulfur.dioxide + density + total.sulfur.dioxide + fixed.acidity + pH, data = train)
+
+summary(morereduced)
+
+anova(morereduced, reduced)
+```
+
+```{r}
+vif(morereduced)
+
+cor(train[,c(1,2,4,6,7,8,9,10,11,12)])
+```
+
+```{r}
+# Partial F test for removing density
+
+morereduced<-lm(quality ~ alcohol + volatile.acidity + sulphates + 
+    residual.sugar + Kind + free.sulfur.dioxide + density + total.sulfur.dioxide + fixed.acidity + pH, data = train)
+
+morereduced2<-lm(quality ~ alcohol + volatile.acidity + sulphates + 
+    residual.sugar + Kind + free.sulfur.dioxide + total.sulfur.dioxide + fixed.acidity + pH, data = train)
+
+
+summary(morereduced2)
+```
+
+```{r}
+vif(morereduced2)
+```
+
+```{r}
+# Partial F test for removing fixed acidity and pH
+
+morereduced2<-lm(quality ~ alcohol + volatile.acidity + sulphates + 
+    residual.sugar + Kind + free.sulfur.dioxide + total.sulfur.dioxide + fixed.acidity + pH, data = train)
+
+morereduced3<-lm(quality ~ alcohol + volatile.acidity + sulphates + 
+    residual.sugar + Kind + free.sulfur.dioxide + total.sulfur.dioxide, data = train)
+
+summary(morereduced3)
+
+anova(morereduced3, morereduced2)
+
+```
+
+```{r}
+vif(morereduced3)
+```
+
+### MSE 
+
+```{r}
+##predicted quality of test data based on training data
+predsred<-predict(morereduced3,newdata=testred)
+
+# MSE for red wine
+squared <- (testred$quality-predsred)**2
+MSE_together_red <- (sum(squared))/nrow(testred)
+MSE_together_red
+
+
+predswhite<-predict(morereduced3,newdata=testwhite)
+
+# MSE for white wine
+squared <- (testwhite$quality-predswhite)**2
+MSE_together_white <- (sum(squared))/nrow(testwhite)
+MSE_together_white
+
+
+preds<-predict(morereduced3,newdata=test)
+
+# MSE for all
+squared <- (test$quality-preds)**2
+MSE_together_both <- (sum(squared))/nrow(test)
+MSE_together_both
+
+```
