@@ -36,8 +36,7 @@ ggplot(trainred, aes(x=citric.acid, y=pH,color=alcohol))+
 ```{r}
 library(gridExtra)
 bp1<-ggplot(trainred, aes(x=fixed.acidity, y=quality))+
-  geom_point()+
-  geom_smooth(method = "lm", se=FALSE)+
+  geom_boxplot()+
   labs(x="fixed.acidity", y="quality",title="quality against fixed.acidity")
 bp2<-ggplot(trainred, aes(x=volatile.acidity, y=quality))+
   geom_point()+
@@ -59,6 +58,11 @@ bp6<-ggplot(trainred, aes(x=free.sulfur.dioxide, y=quality))+
   geom_point()+
   geom_smooth(method = "lm", se=FALSE)+
   labs(x="free.sulfur.dioxide", y="quality",title="quality against free.sulfur.dioxide")
+
+##produce the 4 boxplots in a 2 by 2 matrix
+grid.arrange(bp1, bp2, bp3, bp4, bp5, bp6, ncol = 2, nrow = 3)
+```
+```{r}
 bp7<-ggplot(trainred, aes(x=total.sulfur.dioxide, y=quality))+
   geom_point()+
   geom_smooth(method = "lm", se=FALSE)+
@@ -79,13 +83,14 @@ bp11<-ggplot(trainred, aes(x=alcohol, y=quality))+
   geom_point()+
   geom_smooth(method = "lm", se=FALSE)+
   labs(x="alcohol", y="quality",title="quality against alcohol")
-##produce the 4 boxplots in a 2 by 2 matrix
-grid.arrange(bp1, bp2, bp3, bp4, bp5, bp6, bp7, bp8, bp9, bp10, bp11, ncol = 2, nrow = 12)
+
+grid.arrange(bp7, bp8, bp9, bp10, bp11, ncol = 2, nrow = 3)
 ```
 
 ```{r}
 pairs(trainred, lower.panel = NULL)
 ```
+
 ```{r}
 result<-lm(quality ~ ., data = trainred)
 summary(result)
@@ -110,6 +115,15 @@ H_a: at least one betaj is not zero for j in 1,4,5,9,10
 
 With F statistic 2.74 and a low p-value, we reject the null hypothesis and do not drop the predictors neglected in our reduced model.
 
+Let's also check for multicollinearity. Although our p-values are mostly significant (as is our p-value), we still want to see if any variables are highly correlated:
+```{r}
+round(cor(trainred),3)
+```
+```{r}
+vif(result)
+```
+None of these predictors have Variance Inflation Factors >10, so we do not see multicollinearity. 
+
 Adjusted R-squared:
 ```{r}
 allreg <- regsubsets(quality ~., data=trainred, nbest=1)
@@ -133,12 +147,32 @@ regfull <- lm(quality~., data=trainred)
 step(regnull, scope=list(lower=regnull, upper=regfull), direction="forward")
 ```
 
-Forward selection model based on AIC (also the model with the best adjusted R^2):
+And backwards selection:
+```{r}
+step(regfull, scope=list(lower=regnull, upper=regfull), direction="backward")
+```
 
-quality = 4.089579 + 0.299231*alcohol - 0.962398*volatile.acidity + 0.881832*sulphates - 0.003293*total.sulfur.dioxide - 
-          1.585888*chlorides - 0.436359*pH + 0.005371*free.sulfur.dioxide
-    
-    
+Stepwise regression for direction set to both:
+```{r}
+step(regfull, scope=list(lower=regnull, upper=regfull), direction="both")
+```
+
+Adjusted R^2:
+quality ~ volatile.acidity + chlorides + free.sulfur.dioxide + total.sulfur.dioxide + pH + sulphates + alcohol 
+
+Forward Selection:
+quality ~ volatile.acidity + chlorides + free.sulfur.dioxide + total.sulfur.dioxide + pH + sulphates + alcohol
+
+Backward Elimination:
+quality ~ volatile.acidity + chlorides + free.sulfur.dioxide + total.sulfur.dioxide + pH + sulphates + alcohol
+
+Stepwise Regression:
+quality ~ volatile.acidity + chlorides + free.sulfur.dioxide + total.sulfur.dioxide + pH + sulphates + alcohol
+
+All stepwise regression direction settings yielded the same model based on AIC, which was also the best model for Adjusted R^2:
+
+quality = 4.089579 + 0.299231(alcohol) - 0.962398(volatile.acidity) + 0.881832(sulphates) - 0.003293(total.sulfur.dioxide) - 1.585888(chlorides) - 0.436359(pH) +  0.005371(free.sulfur.dioxide)
+
 Attempting partial F test again after forward selection AIC-based recommendation, 
 ```{r}
 reduced2 <- lm(quality ~ alcohol + volatile.acidity + sulphates + 
