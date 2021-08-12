@@ -147,7 +147,7 @@ regfull <- lm(quality~., data=trainred)
 step(regnull, scope=list(lower=regnull, upper=regfull), direction="forward")
 ```
 
-And backwards selection:
+And backwards elimination:
 ```{r}
 step(regfull, scope=list(lower=regnull, upper=regfull), direction="backward")
 ```
@@ -184,12 +184,17 @@ anova(reduced2, result)
 
 With F-statistic 0.7663 and a high p-value, we fail to reject the null hypothesis and drop the neglected predictors in our second reduced model.
 
+
+We then check our new reduced model to see if any individual predictor can be dropped:
+```{r}
+summary(reduced2)
+```
+Given a significant F statistic and significant predictors, we will reduce our model no further. 
+
+We will now use our reduced model to make prediction on the test data and calculate mean-squared error:
 ```{r}
 preds<-predict(reduced2,newdata=testred)
 
 ## Mean squared error
 sum((testred$quality-preds)^2)/nrow(testred)
-```
-```{r}
-summary(reduced2)
 ```
