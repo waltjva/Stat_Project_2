@@ -1,0 +1,611 @@
+---
+title: "Final Project 2 R Notebook"
+author: "Emily Cathey, Walter Coleman, Stephen Whetzel, Madeline Hennessy"
+date: "8/12/2021"
+output: html_notebook
+---
+
+```{r setup, include=FALSE}
+setwd("/Users/maddiehennessy/Desktop/MSDS/Summer")
+rm(list = ls())
+# loading packages 
+library(tidyverse)
+library(leaps)
+library(MASS)
+library(faraway)
+library(ROCR)
+library(gridExtra)
+```
+
+
+```{r}
+# read in the two csv files
+white <- read.csv("wineQualityWhites.csv")
+red <- read.csv("wineQualityReds.csv")
+white$X <- NULL
+red$X <- NULL
+
+# create a data set that has both red and white wines along with an indicator of the type of the type
+white1 <- white %>%
+  mutate("Kind" = "white")
+
+red1 <- red %>%
+  mutate("Kind" = "red")
+together <- rbind(white1, red1)
+```
+
+
+## EDA 
+
+```{r}
+# turn quality into a factor for EDA
+white$quality<-factor(white$quality)
+red$quality<-factor(red$quality)
+together$quality<-factor(together$quality) 
+```
+
+
+## Create boxplots for the white predictors
+```{r}
+plot1 <- white %>%
+  ggplot(aes(y = fixed.acidity, x = quality)) + geom_boxplot() + ylab("fixed acidity")
+
+plot2 <- white %>%
+  ggplot(aes(y = volatile.acidity, x = quality)) + geom_boxplot() + ylab("volatile acidity")
+
+plot3 <- white %>%
+  ggplot(aes(y = citric.acid, x = quality)) + geom_boxplot() + ylab("citric acid")
+
+plot4 <- white %>%
+  ggplot(aes(y = residual.sugar, x = quality)) + geom_boxplot() + ylab("residual sugar")
+
+plot5 <- white %>%
+  ggplot(aes(y = chlorides, x = quality)) + geom_boxplot()
+
+plot6 <- white %>%
+  ggplot(aes(y = free.sulfur.dioxide, x = quality)) + geom_boxplot() + ylab("free sulfur dioxide")
+
+plot7 <- white %>%
+  ggplot(aes(y = total.sulfur.dioxide, x = quality)) + geom_boxplot() + ylab("total sulfur dioxide")
+
+plot8 <- white %>%
+  ggplot(aes(y = density, x = quality)) + geom_boxplot()
+
+plot9 <- white %>%
+  ggplot(aes(y = pH, x = quality)) + geom_boxplot()
+
+plot10 <- white %>%
+  ggplot(aes(y = sulphates, x = quality)) + geom_boxplot()
+
+plot11 <- white %>%
+  ggplot(aes(y = alcohol, x = quality)) + geom_boxplot()
+
+grid.arrange(plot1, plot2, plot3, plot4, plot5, plot6, plot7, plot8, plot9, plot10, plot11, ncol = 5, nrow = 3)
+```
+
+## Create boxplots for the red predictors
+```{r}
+plot1 <- red %>%
+  ggplot(aes(y = fixed.acidity, x = quality)) + geom_boxplot() + ylab("fixed acidity")
+
+plot2 <- red %>%
+  ggplot(aes(y = volatile.acidity, x = quality)) + geom_boxplot() + ylab("volatile acidity")
+
+plot3 <- red %>%
+  ggplot(aes(y = citric.acid, x = quality)) + geom_boxplot() + ylab("citric acid")
+
+plot4 <- red %>%
+  ggplot(aes(y = residual.sugar, x = quality)) + geom_boxplot() + ylab("residual sugar")
+
+plot5 <- red %>%
+  ggplot(aes(y = chlorides, x = quality)) + geom_boxplot()
+
+plot6 <- red %>%
+  ggplot(aes(y = free.sulfur.dioxide, x = quality)) + geom_boxplot() + ylab("free sulfur dioxide")
+
+plot7 <- red %>%
+  ggplot(aes(y = total.sulfur.dioxide, x = quality)) + geom_boxplot() + ylab("total sulfur dioxide")
+
+plot8 <- red %>%
+  ggplot(aes(y = density, x = quality)) + geom_boxplot()
+
+plot9 <- red %>%
+  ggplot(aes(y = pH, x = quality)) + geom_boxplot()
+
+plot10 <- red %>%
+  ggplot(aes(y = sulphates, x = quality)) + geom_boxplot()
+
+plot11 <- red %>%
+  ggplot(aes(y = alcohol, x = quality)) + geom_boxplot()
+
+grid.arrange(plot1, plot2, plot3, plot4, plot5, plot6, plot7, plot8, plot9, plot10, plot11, ncol = 5, nrow = 3)
+```
+
+## Create density plots for the combined predictors
+```{r}
+dp1 <- ggplot(together,aes(x=fixed.acidity, color=quality))+
+  geom_density()+
+  labs(title="fixed acidity by quality")
+
+dp2 <- ggplot(together,aes(x=volatile.acidity, color=quality))+
+  geom_density()+
+  labs(title="volatile acidity by quality")
+
+dp3 <- ggplot(together,aes(x=citric.acid, color=quality))+
+  geom_density()+
+  labs(title="citric acid by quality")
+
+dp4 <- ggplot(together,aes(x=residual.sugar, color=quality))+
+  geom_density()+
+  labs(title="residual sugar by quality")
+
+dp5 <- ggplot(together,aes(x=chlorides, color=quality))+
+  geom_density()+
+  labs(title="chlorides by quality")
+
+dp6 <- ggplot(together,aes(x=free.sulfur.dioxide, color=quality))+
+  geom_density()+
+  labs(title="free sulfur dioxide by quality")
+
+dp7 <- ggplot(together,aes(x=total.sulfur.dioxide, color=quality))+
+  geom_density()+
+  labs(title="total sulfur dioxide by quality")
+
+dp8 <- ggplot(together,aes(x=density, color=quality))+
+  geom_density()+
+  labs(title="density by quality")
+
+dp9 <- ggplot(together,aes(x=pH, color=quality))+
+  geom_density()+
+  labs(title="pH by quality")
+
+dp10 <- ggplot(together,aes(x=sulphates, color=quality))+
+  geom_density()+
+  labs(title="sulphates by quality")
+
+dp11 <- ggplot(together,aes(x=alcohol, color=quality))+
+  geom_density()+
+  labs(title="alcohol by quality")
+```
+
+## Generate density plots in pairs for visibility
+
+```{r}
+# first density plot grid 
+grid.arrange(dp1, dp2, ncol = 2, nrow = 1)
+```
+
+```{r}
+# second density plot grid 
+grid.arrange(dp3, dp4, ncol = 2, nrow = 1)
+```
+
+```{r}
+# third density plot grid
+grid.arrange(dp5, dp6, ncol = 2, nrow = 1)
+```
+```{r}
+# fourth density plot grid
+grid.arrange(dp7, dp8, ncol = 2, nrow = 1)
+```
+
+```{r}
+# fifth density plot grid 
+grid.arrange(dp9, dp10, ncol = 2, nrow = 1)
+```
+```{r}
+# sixth density plot grid 
+grid.arrange(dp11, ncol = 2, nrow = 1)
+```
+
+
+
+```{r}
+# turn quality into numeric again for MLR
+white$quality<-as.numeric(white$quality)
+red$quality<-as.numeric(red$quality)
+together$quality<-as.numeric(together$quality) 
+```
+
+## Splitting the Data 
+```{r}
+##set the random number generator so same results can be reproduced
+set.seed(1)
+
+##choose the observations to be in the training set.
+##Splitting the data set into 80/20
+samplewhite<-sample.int(nrow(white), floor(.80*nrow(white)), replace = F) 
+trainwhite<-white[samplewhite, ] ##training data
+testwhite<-white[-samplewhite, ] ##test data
+
+set.seed(1)
+
+samplered<-sample.int(nrow(red), floor(.80*nrow(red)), replace = F) 
+trainred<-red[samplered, ] ##training data for red 
+testred<-red[-samplered, ] ##test data for red
+```
+
+## Creating combined data from split white and red data 
+```{r}
+
+set.seed(1)
+##choose the observations to be in the training set.
+##I am splitting the data set into 80/20
+
+samplered2<-sample.int(nrow(red1), floor(.80*nrow(red1)), replace = F) 
+trainred2<-red1[samplered2, ] ##training data
+testred2<-red1[-samplered2, ] ##test data
+
+samplewhite2<-sample.int(nrow(white1), floor(.80*nrow(white1)), replace = F) 
+trainwhite2<-white1[samplewhite2, ] ##training data
+testwhite2<-white1[-samplewhite2, ] ##test data
+
+# combine red and white training and test
+
+train <- rbind(trainred2, trainwhite2)
+test <- rbind(testred2, testwhite2)
+head(train)
+```
+
+
+
+## Multiple Linear Regression with white training data
+
+
+## Forward Selection first 
+```{r}
+regnull1 <- lm(quality~1, data=trainwhite)
+regfull1 <- lm(quality~., data=trainwhite)
+
+step(regnull1, scope=list(lower=regnull1, upper=regfull1), direction="forward")
+```
+
+
+```{r}
+result_forw <- lm(formula = quality ~ alcohol + volatile.acidity + residual.sugar + density + sulphates + pH +
+                    free.sulfur.dioxide + fixed.acidity, data = trainwhite)
+
+summary(result_forw)
+```
+
+
+
+.2813 adjusted R^2 isn't a great initial fit, but it's the best we have apparently.
+
+## Trying Backwards Selection
+```{r}
+step(regfull1, scope=list(lower=regnull1, upper=regfull1), direction="backward")
+```
+
+
+## Trying Stepwise Selection Now 
+```{r}
+step(regnull1, scope=list(lower=regnull1, upper=regfull1), direction="both")
+```
+All three methods agree that the best model takes in all predictors except for citric acid, chlorides and total sulfur dioxide when determining white wine quality. 
+
+Taking out chlorides and total sulfur dioxide makes sense given the lack of linearity within the EDA boxplot, but citric acid doesn't make as much sense to take out. I'm going to try a stepwise function that starts with a model with just citric acid and see if it ends up taking it out and then compare the adjusted r squared values. 
+
+
+```{r}
+regcitric <- lm(quality~citric.acid, data=trainwhite)
+step(regcitric, scope=list(lower=regnull1, upper=regfull1), direction="both")
+```
+The algorithm ended up taking out citric acid anyway. We are going to look at a summary of the model with citric acid and compare the adjusted R-squared values. 
+
+
+```{r}
+result_citric <- lm(formula = quality ~ alcohol + volatile.acidity + residual.sugar + density + sulphates + pH +
+                      free.sulfur.dioxide + fixed.acidity + citric.acid, data = trainwhite)
+
+summary(result_citric)
+summary(result_forw)
+```
+
+The model without citric acid does just slightly better than the original model. This is good evidence for leaving that predictor out of the model. It doesn't significantly affect the adj R-squared, and we can make a marginally simpler model. 
+
+Let's run a Partial F test to make sure that it is okay to drop the four predictors dropped in the above model, chlorides, fixed acidity, total sulfur dioxide, and citric acid
+
+
+```{r}
+anova(result_forw, regfull1)
+```
+
+The result of the test is a F statistic of 0.68491 and a p value of 0.7526. Our null hypothesis is that the coefficients for chlorides, total sulfur dioxide, and citric acid are all equal to zero. We don't have nearly enough evidence to reject this hypothesis and so we drop the four predictors and opt for the simpler model. 
+
+Next we'll turn to diagnosing multi-collinearity in the data by calculating the VIF for each predictor still in the model.
+
+
+```{r}
+vif(result_forw)
+```
+
+```{r}
+
+cor(white)
+```
+
+Density has a very high VIF of 24.322503, much higher than the normal threshold of 10. As such we want to consider getting rid of a predictor correlated with this one, probably residual sugar since it has the highest correlation with density.
+
+
+```{r}
+reduced_forw_density <- lm(formula = quality ~ alcohol + volatile.acidity + density + sulphates + pH + free.sulfur.dioxide + fixed.acidity, data = trainwhite)
+
+summary(reduced_forw_density)
+vif(reduced_forw_density)
+```
+Our p-value for residual sugar doesn't support getting rid of this variable, but since this predictor shows a high VIF and correlation with density, our highest VIF value predictor, we chose to drop the variable so that our model would be useful for exploring the relationship between the predictors and the response. Running a vif analysis on the further reduced model shows that removing this variable takes a good deal of multicollinearity out of the model and should improve accuracy.
+
+
+```{r}
+summary(reduced_forw_density)
+```
+
+We're now seeing a high p-values for pH. This predictor may not actually be necessary for our final model. Taking it out yields an adjusted R-squared value of 0.2596 which is actually slightly higher than the adjusted R-squared value for the last model.
+
+
+```{r}
+reduced_forw3 <- lm(quality ~ alcohol + volatile.acidity + free.sulfur.dioxide + density + sulphates + 
+                      fixed.acidity, data = trainwhite)
+
+summary(reduced_forw3)
+vif(reduced_forw3)
+```
+
+This final model has the formula:
+$$ \hat{y} = -38.18 + 0.406x_{alcohol} - 1.985x_{volatile\ acidity} + 0.004x_{free\ sulfur\ dioxide} + 3.885x_{density} + 0.345x_{sulphates} - 0.089x_{fixed\ acidity}}$$
+
+
+
+## Multiple Linear Regression with red training data 
+
+
+```{r}
+result1<-lm(quality ~ ., data = trainred)
+summary(result1)
+```
+We test now if at least one of the coefficients is not zero:
+
+H_0: beta1=beta2=...beta11=0
+H_a: at least one betaj is not zero for j in 1,...,11
+
+With F-statistic 81.35 and a low p-value, we reject the null hypothesis and conclude that at least one coefficient is not zero.
+
+We believe that given the insignificant results of fixed.acidity, citric.acid, residual.sugar, density, pH we may be better off dropping them from our model. Thus, we compare with a reduced linear regression model and run ANOVA to test if we can drop.
+
+```{r}
+reduced1<-lm(quality ~ volatile.acidity+chlorides+free.sulfur.dioxide+total.sulfur.dioxide+sulphates+alcohol, data=trainred)
+anova(reduced1, result1)
+```
+H_0: beta1 = beta4 = beta5 = beta9 = beta10 = 0
+H_a: at least one betaj is not zero for j in 1,4,5,9,10
+
+With F statistic 2.74 and a low p-value, we reject the null hypothesis and do not drop the predictors neglected in our reduced model.
+
+Let's also check for multicollinearity. Although our p-values are mostly significant (as is our p-value), we still want to see if any variables are highly correlated:
+
+```{r}
+round(cor(trainred),3)
+```
+
+
+```{r}
+vif(result1)
+```
+None of these predictors have Variance Inflation Factors >10, so we do not see multicollinearity. 
+
+## Adjusted R-squared
+```{r}
+allreg <- regsubsets(quality ~., data=trainred, nbest=1)
+summary(allreg)
+```
+
+```{r}
+which.max(summary(allreg)$adjr2)
+```
+
+```{r}
+coef(allreg, which.max(summary(allreg)$adjr2))
+```
+
+
+## Forward Selection first
+```{r}
+regnull2 <- lm(quality~1, data=trainred) 
+regfull2 <- lm(quality~., data=trainred)
+
+step(regnull2, scope=list(lower=regnull2, upper=regfull2), direction="forward")
+```
+
+## And backwards selection:
+```{r}
+step(regfull2, scope=list(lower=regnull2, upper=regfull2), direction="backward")
+```
+
+## Stepwise regression for direction set to both
+```{r}
+step(regfull2, scope=list(lower=regnull2, upper=regfull2), direction="both")
+```
+
+All three methods agree that the best model takes in all predictors except for citric acid, density, fixed.acidity and residual.sugar when determining white wine quality. 
+
+We now have a linear regression equation of: 
+quality = 2.089579 + 0.299231(alcohol) - 0.962398(volatile.acidity) + 0.881832(sulphates) - 0.003293(total.sulfur.dioxide) - 1.585888(chlorides) - 0.436359(pH) +  0.005371(free.sulfur.dioxide)
+
+## Attempting F-stat after forward selection AIC-based recommendation
+```{r}
+result2<-lm(quality ~ ., data = trainred)
+summary(result2)
+```
+We test now if at least one of the coefficients is not zero:
+
+H_0: beta1=beta2=...beta7=0
+H_a: at least one betaj is not zero for j in 1,...,7
+
+With F-statistic 63.02 and a low p-value, we reject the null hypothesis and conclude that at least one coefficient is not zero.
+
+We compare with a reduced linear regression model and run ANOVA to test if we can drop.
+
+```{r}
+reduced2 <- lm(quality ~ alcohol + volatile.acidity + sulphates + 
+    total.sulfur.dioxide + chlorides + pH + free.sulfur.dioxide, 
+    data = trainred)
+
+anova(reduced2, result2)
+```
+
+With F-statistic 0.7663 and a high p-value, we fail to reject the null hypothesis and drop the neglected predictors in our reduced model.
+
+
+
+
+## Multiple Linear Regression of combined white and red model
+
+
+## Forward Selection first 
+```{r}
+regnull3 <- lm(quality~1, data=train) 
+regfull3 <- lm(quality~., data=train)
+
+step(regnull3, scope=list(lower=regnull3, upper=regfull3), direction="forward")
+```
+
+
+## Backwards Selection 
+```{r}
+step(regfull3, scope=list(lower=regnull3, upper=regfull3), direction="backward")
+```
+
+## Stepwise Selection
+```{r}
+step(regnull3, scope=list(lower=regnull3, upper=regfull3), direction="both")
+```
+
+Forwards, backwards, and stepwise all resulted in a final model that includes alcohol, volatile.acidity, sulphates, residual.sugar, Kind (the wine type, red or white), free.sulfur.dioxide, density, total.sulfur.dioxide, chlorides, fixed.acidity, and pH, so the only predictor not included is chloride.
+
+## Partial F-test to check forward selection 
+```{r}
+result_together<-lm(quality~., data=train)
+
+train$Kind<-factor(train$Kind)
+contrasts(train$Kind)
+
+reduced_together <-lm(quality ~ alcohol + volatile.acidity + sulphates + 
+    residual.sugar + Kind + free.sulfur.dioxide + density + total.sulfur.dioxide + 
+    chlorides + fixed.acidity + pH, data = train)
+summary(reduced_together)
+
+anova(reduced_together, result_together)
+```
+
+
+# Partial F test for chlorides
+```{r}
+reduced_together2<-lm(quality ~ alcohol + volatile.acidity + sulphates + 
+    residual.sugar + Kind + free.sulfur.dioxide + density + total.sulfur.dioxide + 
+    chlorides + fixed.acidity + pH, data = train)
+
+morereduced<-lm(quality ~ alcohol + volatile.acidity + sulphates + 
+    residual.sugar + Kind + free.sulfur.dioxide + density + total.sulfur.dioxide + fixed.acidity + pH, data = train)
+
+summary(morereduced)
+
+anova(morereduced, reduced_together2)
+```
+
+
+## Addressing Multicolinearity 
+```{r}
+vif(morereduced)
+
+cor(train[,c(1,2,4,6,7,8,9,10,11,12)])
+```
+
+We produced a model without alcohol because it had the lower VIF
+
+## Partial F test for removing alcohol
+```{r}
+morereduced<-lm(quality ~ alcohol + volatile.acidity + sulphates + 
+    residual.sugar + Kind + free.sulfur.dioxide + density + total.sulfur.dioxide + fixed.acidity + pH, data = train)
+
+morereduced2<-lm(quality ~ volatile.acidity + sulphates + 
+    residual.sugar + Kind + free.sulfur.dioxide + density + total.sulfur.dioxide + fixed.acidity + pH, data = train)
+
+summary(morereduced2)
+anova(morereduced2, morereduced)
+```
+
+All of the other predictors were still statistically significant when alcohol was not present in the model
+
+```{r}
+vif(morereduced2)
+```
+
+All of the VIF scores were now well under 10
+
+
+
+
+## Producing Mean Squared Errors for each model and comparing them 
+
+
+## White Wine Model MSE
+```{r}
+predswhite <- predict(reduced_forw3, newdata=testwhite)
+squared <- (testwhite$quality-predswhite)**2
+MSE_together_white <- (sum(squared))/nrow(testwhite)
+MSE_together_white
+```
+
+
+```{r}
+df <- data.frame(reduced_forw3$residuals, reduced_forw3$fitted.values, trainwhite$quality)
+
+ggplot(df, aes(x=reduced_forw3.fitted.values, y=reduced_forw3.residuals))+
+  geom_point()
+```
+
+
+
+## Red Wine Model MSE
+```{r}
+predsred<-predict(reduced2,newdata=testred)
+
+## Mean squared error
+sum((testred$quality-predsred)^2)/nrow(testred)
+```
+
+```{r}
+summary(reduced2)
+```
+
+
+## Combined Red and White Model MSE 
+```{r}
+##predicted quality of test data based on training data
+predsred_together<-predict(morereduced2,newdata=testred2)
+
+# MSE for red wine
+squared <- (testred2$quality-predsred_together)**2
+MSE_together_red <- (sum(squared))/nrow(testred2)
+MSE_together_red
+
+
+predswhite_together<-predict(morereduced2,newdata=testwhite2)
+
+# MSE for white wine
+squared <- (testwhite2$quality-predswhite_together)**2
+MSE_together_white <- (sum(squared))/nrow(testwhite2)
+MSE_together_white
+
+
+preds_together<-predict(morereduced2,newdata=test)
+
+# MSE for all
+squared <- (test$quality-preds_together)**2
+MSE_together_both <- (sum(squared))/nrow(test)
+MSE_together_both
+```
+
+
+
